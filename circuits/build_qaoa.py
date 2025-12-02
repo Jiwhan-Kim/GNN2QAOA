@@ -1,4 +1,7 @@
+import matplotlib.pyplot as plt
 import rustworkx as rx
+import numpy as np
+from itertools import product
 
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit.quantum_info import SparsePauliOp
@@ -97,3 +100,49 @@ def print_result(plot_results):
     print(f"Result of Sampler: {dictionary}")
     print(f"Result of Partitioning: {max_str}, Cuts: {
           max_cut}, Counts: {max} / 32768")
+
+
+def draw_plot(counts: dict):
+    result = fill_missing_bitstrings(counts)
+    sorted_items = sorted(result.items(), key=lambda kv: kv[0])
+    x = [k for k, _ in sorted_items]
+    y = [v for _, v in sorted_items]
+
+    plt.bar(x, y)
+    plt.xlabel('Key')
+    plt.ylabel('Value')
+    plt.show()
+
+
+def fill_missing_bitstrings(counts: dict) -> dict:
+    """
+    Given a counts dictionary like {"00": 11, "11": 5},
+    return a full dictionary including 0-count bitstrings:
+    {"00": 11, "01": 0, "10": 0, "11": 5}.
+    """
+    # infer number of qubits from bitstring length
+    if len(counts) == 0:
+        raise ValueError("counts dictionary is empty")
+
+    n = len(next(iter(counts)))  # number of qubits from key length
+
+    all_strings = [''.join(bits) for bits in product('01', repeat=n)]
+    full = {s: 0 for s in all_strings}
+
+    for bitstr, c in counts.items():
+        full[bitstr] = c
+
+    return full
+
+
+def draw_log_cost(costs):
+    costs = np.array(costs).flatten()
+    length = len(costs)
+    x = np.arange(length)
+
+    plt.plot(x, costs, marker='o')
+    plt.xlabel('Iteration')
+    plt.ylabel('Cost')
+    plt.title("Minimizing Cost")
+    plt.grid(True)
+    plt.show()
