@@ -5,7 +5,7 @@ from qpu_estimator import qpu_estimator
 from sim_sampler import sim_sampler
 from sim_estimator import sim_estimator
 
-from circuits import build_qaoa, build_hamiltonian, plot_result, print_result, draw_plot, draw_log_cost
+from circuits import build_qaoa, build_hamiltonian, plot_result, print_result, draw_plot, draw_log_cost, draw_plot_result
 from optims import Adam
 
 from graphs.long_graph import create_long_graph
@@ -15,8 +15,10 @@ import numpy as np
 import rustworkx as rx
 from rustworkx.visualization import mpl_draw
 import matplotlib.pyplot as plt
+from datetime import datetime, timezone
 
-DRAW = 0
+DRAW = 1
+time = datetime.now(timezone.utc).isoformat()
 
 
 def maxcut_cost(run,
@@ -67,9 +69,14 @@ def maxcut_grad(run,
     return cost, grad
 
 
-lr = 0.15
-beta1 = 0.5
-beta2 = 0.9
+# lr = 0.15
+# beta1 = 0.5
+# beta2 = 0.9
+# eps = 1e-8
+
+lr = 0.1
+beta1 = 0
+beta2 = 0.999
 eps = 1e-8
 
 
@@ -110,7 +117,7 @@ def minimize(run, thetas, edge_list, consts):
         print(f"Best Params: {min_thetas}\n")
 
         if DRAW != 0:
-            draw_log_cost(log_cost)
+            draw_log_cost(log_cost, time)
 
     return min_thetas, min_cost
 
@@ -144,7 +151,8 @@ def simulator(consts, graph, thetas):
         print_result(plot_results)
 
     if DRAW != 0:
-        draw_plot(results[0])
+        # draw_plot(results[0], time)
+        draw_plot_result(plot_results[0][0], time)
 
     return thetas, min_cost, plot_results[0]
 
@@ -179,7 +187,8 @@ def qpu(consts, graph, thetas):
     # print_result(plot_results)
 
     if DRAW != 0:
-        draw_plot(results[0])
+        # draw_plot(results[0], time)
+        draw_plot_result(plot_results[0][0], time)
 
     return thetas, min_cost, plot_results[0]
 
@@ -201,8 +210,9 @@ def get_thetas_stoch(consts, graph, thetas):
     consts = (n_qubits, n_layers, n_iteration)
 
     if draw != 0:
+        plt.figure(1)
         mpl_draw(graph, with_labels=True, node_color='lightblue', font_size=15)
-        plt.show()
+        plt.savefig(f"./images/{time}-1-graph.png")
 
     if env == "simulator":
         thetas, min_cost, plot_result = simulator(consts, graph, thetas)
@@ -214,18 +224,20 @@ def get_thetas_stoch(consts, graph, thetas):
 
     if draw != 0:
         (dictionary, max, max_str, max_cut) = plot_result
-        node_color = ['lightblue' if bit ==
-                      '0' else 'orange' for bit in max_str]
+        node_color = ['lightblue' if bit == '0'
+                      else 'orange' for bit in max_str]
 
+        plt.figure(5)
         mpl_draw(graph, with_labels=True,
                  node_color=node_color, font_size=15)
-        plt.show()
+        plt.savefig(f"./images/{time}-5-result.png")
 
     return thetas, min_cost
 
 
 if __name__ == "__main__":
     consts = (args.qubits, args.layers, args.iters, args.env, args.draw)
+
     DRAW = consts[4]
 
     graph, edge_list = create_long_graph(consts[0])

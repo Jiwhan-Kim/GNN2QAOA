@@ -1,11 +1,15 @@
 from models import Graph2QAOAParams, rx2torch
-from graphs import create_random_graph
+from graphs import create_random_graph, create_long_graph
 from optims import MultiTargetMSELoss
+from circuits import build_qaoa, plot_result, draw_plot_result
+from sim_sampler import sim_sampler
 
 import os
 import numpy as np
 import torch
 from torch.optim import Adam
+import matplotlib.pyplot as plt
+from rustworkx.visualization import mpl_draw
 
 from scipy_graph_partition import get_thetas
 from stoch_graph_partition import get_thetas_stoch
@@ -18,7 +22,7 @@ def create_graphs(num_graphs):
         # if i % (num_graphs // 5):
         #     print(f"[KimJW - Create] Create Graph {i / num_graphs * 100}%")
         g, _ = create_random_graph(
-            5 + (i % 11), 0.3 + 0.05 * (i % 5), seed=(2021189004 + i))
+            5 + (i % 11), 0.3 + 0.05 * (i % 5), seed=2021189004 + i)
         graphs.append(g)
         dataset.append(rx2torch(g))
 
@@ -55,16 +59,17 @@ def get_params(graphs, _):
                 [np.float64(0.0) for _ in range(2 * n_layers)]
                 for _ in range(samples_per_graph)
             ]
+            list.append(sub_list)
             continue
 
         for _ in range(samples_per_graph):
             new_thetas = get_thetas(consts, graph, 2 * np.pi *
                                     np.random.rand(2 * n_layers))
+
+            # new_thetas = [((theta + np.pi) % (2 * np.pi) - np.pi) for theta in new_thetas]
             sub_list.append(new_thetas)
 
         list.append(sub_list)
-
-    torch.save(list, f'./datas/{num_graphs}_params_temp.pt')
 
     array = np.array(list)
     tensor = torch.tensor(array)
@@ -72,21 +77,26 @@ def get_params(graphs, _):
     return tensor
 
 
-def train_model(graph, dataset, params, test_graph, test_dataset):
-    model = Graph2QAOAParams(1, 16, 2, n_layers)
+def train_model(graphs, dataset, params, test_graph, test_dataset):
+    model = Graph2QAOAParams(1, 16, 3, n_layers)
     model.train()
     optimizer = Adam(model.parameters(), lr=0.001, betas=(0.9, 0.999))
     criterion = MultiTargetMSELoss()
 
-    min_cost = 10000
-    state = None
     for epoch in range(1, n_epochs + 1):
-        print(f"[KimJW - Training] Epoch: {epoch}")
-        for graph, data, param in zip(graph, dataset, params):
+        if epoch % 10 == 0:
+            print(f"[KimJW - Training] Epoch: {epoch}")
+
+        for idx, (graph, data, param) in enumerate(zip(graphs, dataset, params)):
+            if idx % 100 == 0:
+                print(f"[KimJW - Training] {idx} / {num_graphs}")
+
             if graph.num_edges() == 0:
                 if epoch == 1:
                     print("[KimJW - Training] Note: Zero Edge Training Sample")
                 continue
+
+            param = ((param + np.pi) % (2 * torch.pi) - torch.pi)
 
             # params: shape (3, 2 * n_layers)
             y = model(data)  # shape (2 * n_layers, )
@@ -95,36 +105,26 @@ def train_model(graph, dataset, params, test_graph, test_dataset):
             loss.backward()
             optimizer.step()
 
-        cost = eval_model(model, test_graph, test_dataset)
-        if cost < min_cost:
-            state = model.state_dict()
-
-    if state is not None:
-        torch.save(state, f"./datas/{num_graphs}_models.pt")
     print("[KimJW - Training] Training Done")
-    if state is not None:
-        torch.save(state, f"./datas/{num_graphs}_models.pt")
-    else:
-        print("[KimJW - Training] No State are stored")
+    torch.save(model.state_dict(), f"./datas/{num_graphs}_models.pt")
 
     return model
 
 
-def eval_model(model, test_graph, test_dataset):
-    # min_thetas_diff_L2_no_model = []
+def eval_model(model, test_graphs, test_dataset):
     min_costs_no_model = []
-    for graph in test_graph:
+    for idx, graph in enumerate(test_graphs):
+        if idx % 10 == 0:
+            print(f"[KimJW - Eval] No Model {idx} / {num_graphs // 10}")
         if graph.num_edges() == 0:
             print("[KimJW - Eval] Note: Zero Edge Test Sample")
             continue
 
-        consts = (graph.num_nodes(), n_layers, n_iteration, 'simulator', 0)
+        # consts = (graph.num_nodes(), n_layers, n_iteration, 'simulator', 0)
+        consts = (graph.num_nodes(), n_layers, 10, 'simulator', 0)
         thetas = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
 
         min_thetas, min_cost = get_thetas_stoch(consts, graph, thetas)
-        # min_thetas = torch.tensor(min_thetas)
-        # errs = (thetas - min_thetas) ** 2
-        # min_thetas_diff_L2_no_model.append(errs.norm())
         min_costs_no_model.append(min_cost)
 
     min_costs_no_model_array = np.array(min_costs_no_model)
@@ -136,18 +136,20 @@ def eval_model(model, test_graph, test_dataset):
     with torch.no_grad():
         model.eval()
 
-        # min_thetas_diff_L2 = []
         min_costs = []
-        for graph, data in zip(test_graph, test_dataset):
-            consts = (graph.num_nodes(), n_layers, n_iteration, 'simulator', 0)
+        for idx, (graph, data) in enumerate(zip(test_graphs, test_dataset)):
+            if idx % 10 == 0:
+                print(f"[KimJW - Eval] No Model {idx} / {num_graphs // 10}")
 
+            if graph.num_edges() == 0:
+                print("[KimJW - Eval] Note: Zero Edge Test Sample")
+                continue
+
+            # consts = (graph.num_nodes(), n_layers, n_iteration, 'simulator', 0)
+            consts = (graph.num_nodes(), n_layers, 10, 'simulator', 0)
             y = model(data).tolist()  # shape (2 * n_layers, )
-            min_thetas, min_cost = get_thetas_stoch(consts, graph, y)
 
-            # min_thetas = torch.tensor(min_thetas)
-            # errs = (y - min_thetas) ** 2
-            # min_thetas_diff_L2.append(errs.norm())
-            print(y, min_thetas)
+            min_thetas, min_cost = get_thetas_stoch(consts, graph, y)
             min_costs.append(min_cost)
 
         # min_thetas_diff_L2_array = np.array(min_thetas_diff_L2)
@@ -156,11 +158,26 @@ def eval_model(model, test_graph, test_dataset):
             f"[KimJW - Evaluation] Average Min Cost on Testset with model: {min_costs_array.mean()}")
         print(
             f"[KimJW - Evaluation] std. of Min Cost on Testset with model: {min_costs_array.std()}\n")
-        # print(
-        #     f"[KimJW - Evaluation] Param Shift Average: {
-        #         min_thetas_diff_L2_array.mean()}"
-        # )
+
+        print(
+            f"Result Vector: \n{min_costs_no_model}\n{min_costs}"
+        )
         return min_costs_array.mean()
+
+
+def test_long_graph(model):
+    graph, edge_list = create_long_graph(15)
+    data = rx2torch(graph)
+    thetas_model = model(data).tolist()
+    thetas_no_model = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
+
+    consts = (graph.num_nodes(), n_layers, 10, 'simulator', 1)
+
+    print("Long Graph Test")
+    _, min_cost_model = get_thetas_stoch(consts, graph, thetas_model)
+    _, min_cost_no_model = get_thetas_stoch(consts, graph, thetas_no_model)
+
+    print(f"Compare: model: {min_cost_model}, no_model: {min_cost_no_model}")
 
 
 if __name__ == '__main__':
@@ -168,7 +185,7 @@ if __name__ == '__main__':
     n_layers = 2
     n_iteration = 30
 
-    n_epochs = 50
+    n_epochs = 100
 
     print("Start to run")
 
@@ -204,8 +221,9 @@ if __name__ == '__main__':
         model = train_model(graphs, dataset, params, test_graphs, test_dataset)
     else:
         print("[KimJW - Main] Load model from Files\n")
-        model = Graph2QAOAParams(1, 16, 2, n_layers)
+        model = Graph2QAOAParams(1, 16, 3, n_layers)
         model.load_state_dict(torch.load(f'./datas/{num_graphs}_models.pt'))
 
     print("Start Inference")
-    eval_model(model, test_graphs, test_dataset)
+    # eval_model(model, test_graphs, test_dataset)
+    test_long_graph(model)

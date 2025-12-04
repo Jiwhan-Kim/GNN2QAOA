@@ -94,6 +94,17 @@ def plot_result(results, edge_list: rx.WeightedEdgeList):
     return list_ret
 
 
+def draw_plot_result(dictionary, time):
+    x = list(dictionary.keys())
+    y = list(dictionary.values())
+
+    plt.figure(4)
+    plt.bar(x, y)
+    plt.xlabel('Cuts')
+    plt.ylabel('Value')
+    plt.savefig(f"./images/{time}-4-distibute.png")
+
+
 def print_result(plot_results):
     (dictionary, max, max_str, max_cut) = plot_results[0]
 
@@ -102,16 +113,17 @@ def print_result(plot_results):
           max_cut}, Counts: {max} / 32768")
 
 
-def draw_plot(counts: dict):
+def draw_plot(counts: dict, time: str):
     result = fill_missing_bitstrings(counts)
     sorted_items = sorted(result.items(), key=lambda kv: kv[0])
     x = [k for k, _ in sorted_items]
     y = [v for _, v in sorted_items]
 
+    plt.figure(3)
     plt.bar(x, y)
     plt.xlabel('Key')
     plt.ylabel('Value')
-    plt.show()
+    plt.savefig(f"./images/{time}-3-items.png")
 
 
 def fill_missing_bitstrings(counts: dict) -> dict:
@@ -135,14 +147,15 @@ def fill_missing_bitstrings(counts: dict) -> dict:
     return full
 
 
-def draw_log_cost(costs):
+def draw_log_cost(costs, time: str):
     costs = np.array(costs).flatten()
     length = len(costs)
     x = np.arange(length)
 
+    plt.figure(2)
     plt.plot(x, costs, marker='o')
     plt.xlabel('Iteration')
     plt.ylabel('Cost')
     plt.title("Minimizing Cost")
     plt.grid(True)
-    plt.show()
+    plt.savefig(f"./images/{time}-2-cost-log.png")
