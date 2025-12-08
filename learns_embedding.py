@@ -169,15 +169,16 @@ def test_long_graph(model):
     graph, edge_list = create_long_graph(15)
     data = rx2torch(graph)
     thetas_model = model(data).tolist()
-    thetas_no_model = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
+    # thetas_no_model = 2 * np.pi * (np.random.rand(2 * n_layers) - 0.5)
 
     consts = (graph.num_nodes(), n_layers, 10, 'simulator', 1)
 
     print("Long Graph Test")
     _, min_cost_model = get_thetas_stoch(consts, graph, thetas_model)
-    _, min_cost_no_model = get_thetas_stoch(consts, graph, thetas_no_model)
+    # _, min_cost_no_model = get_thetas_stoch(consts, graph, thetas_no_model)
 
-    print(f"Compare: model: {min_cost_model}, no_model: {min_cost_no_model}")
+    print(f"Compare: model: {min_cost_model}")
+    # print(f"Compare: no_model: {min_cost_no_model}")
 
 
 if __name__ == '__main__':

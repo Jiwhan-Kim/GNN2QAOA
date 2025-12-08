@@ -74,7 +74,7 @@ def maxcut_grad(run,
 # beta2 = 0.9
 # eps = 1e-8
 
-lr = 0.1
+lr = 0.025
 beta1 = 0
 beta2 = 0.999
 eps = 1e-8
@@ -116,8 +116,8 @@ def minimize(run, thetas, edge_list, consts):
         print(f"Best Cost: {min_cost}")
         print(f"Best Params: {min_thetas}\n")
 
-        if DRAW != 0:
-            draw_log_cost(log_cost, time)
+    if DRAW != 0:
+        draw_log_cost(log_cost, time)
 
     return min_thetas, min_cost
 
