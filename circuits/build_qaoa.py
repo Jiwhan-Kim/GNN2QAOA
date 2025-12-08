@@ -102,7 +102,7 @@ def draw_plot_result(dictionary, time):
     plt.bar(x, y)
     plt.xlabel('Cuts')
     plt.ylabel('Value')
-    plt.savefig(f"./images/{time}-4-distibute.png")
+    plt.savefig(f"./images/{time}-4-distribute.png")
 
 
 def print_result(plot_results):
