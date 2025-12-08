@@ -4,8 +4,8 @@ Two methods to run QAOA: via a QPU of Yonsei (`ibm_yonsei`) or a CPU.
 
 ## Initialization
 ```shell
-git clone https://github.com/Jiwhan-Kim/QAOA-Simple.git
-cd ./QAOA-Simple
+git clone https://github.com/Jiwhan-Kim/GNN2QAOA.git
+cd ./GNN2QAOA
 
 conda env create -f ./environment.yml
 conda activate qiskit312
