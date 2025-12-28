@@ -1,8 +1,6 @@
-from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2
+import numpy as np
+from qiskit_ibm_runtime import QiskitRuntimeService, Session, SamplerV2, EstimatorV2
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-from qiskit import transpile
-
-from circuits import make_bell_circuit
 
 
 def qpu_get_device():
@@ -22,10 +20,6 @@ def qpu_get_device():
 def qpu_sampler(backend, session, qcs, shots: int = 1024):
     if backend is None:
         raise ValueError("Backend is None. Please provide a valid backend.")
-
-    if __name__ == "__main__":
-        for qc in qcs:
-            print(qc[0])
 
     pm = generate_preset_pass_manager(optimization_level=3, backend=backend)
     candidate_circuits = pm.run(qcs)
@@ -47,11 +41,37 @@ def qpu_sampler(backend, session, qcs, shots: int = 1024):
 
     # When running multiple circuits, change index from 0 to idx
     result = [job_result.data['c'].get_counts() for job_result in job_results]
-    # print("IBM Backend Result: ", result)
 
     return result
 
 
-if __name__ == "__main__":
-    backend = qpu_get_device()
-    qpu_sampler(backend, None, [make_bell_circuit(), make_bell_circuit()])
+def qpu_estimator(backend, session, qcs, hamiltonian, shots: int = 1024):
+    if backend is None:
+        raise ValueError("Backend is None. Please provide a valid backend.")
+
+    pm = generate_preset_pass_manager(optimization_level=3, backend=backend)
+    candidate_circuits = pm.run(qcs)
+
+    estimator = EstimatorV2(mode=session if session is not None else backend)
+    estimator.options.default_shots = shots
+
+    # Set simple error suppression/mitigation options
+    estimator.options.dynamical_decoupling.enable = True
+    estimator.options.dynamical_decoupling.sequence_type = "XY4"
+    estimator.options.twirling.enable_gates = True
+    estimator.options.twirling.num_randomizations = "auto"
+
+    # When running multiple circuits, just add in the list
+
+    pub = [(cc, hamiltonian.apply_layout(cc.layout))
+           for cc in candidate_circuits]
+    job = estimator.run(pub)
+    job_results = job.result()
+
+    # When running multiple circuits, change index from 0 to idx
+    result = [job_result.data.evs if job_result.data.evs.size > 1
+              else np.array([job_result.data.evs])
+              for job_result in job_results]
+    # print("IBM Backend Result: ", result)
+
+    return result
