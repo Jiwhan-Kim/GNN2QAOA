@@ -151,7 +151,7 @@ class QAOA:
             plus = result_by_param[:num_gates]
             minus = result_by_param[num_gates:]
 
-            grad = sum(plus) - sum(minus)
+            grad = 0.5 * (sum(plus) - sum(minus))
             grads.append(grad)
 
         return np.array(grads)

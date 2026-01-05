@@ -9,7 +9,8 @@ def create_long_graph(n_qubits: int):
     edge_list = []
     for i in range(n_qubits - 1):
         edge_list.append((i, i + 1, 1.0))
-
+    edge_list.append((0, n_qubits - 1, 1.0))
+    # edge_list.append((0, 5, 2.0))
     graph.add_edges_from(edge_list)
 
     return graph, graph.weighted_edge_list()

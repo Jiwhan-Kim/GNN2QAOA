@@ -4,7 +4,7 @@ from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 
 def sim_sampler(backend, _, qcs, shots: int = 1024):
-    sampler = SamplerV2()
+    sampler = SamplerV2.from_backend(backend)
 
     pm = generate_preset_pass_manager(optimization_level=3, backend=backend)
     candidate_circuits = pm.run(qcs)
@@ -17,7 +17,7 @@ def sim_sampler(backend, _, qcs, shots: int = 1024):
 
 
 def sim_estimator(backend, _, qcs, hamiltonian, shots: int | None = None):
-    estimator = EstimatorV2()
+    estimator = EstimatorV2.from_backend(backend)
 
     pm = generate_preset_pass_manager(optimization_level=3, backend=backend)
     candidate_circuits = pm.run(qcs)
